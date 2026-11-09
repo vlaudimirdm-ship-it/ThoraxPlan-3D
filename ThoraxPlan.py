@@ -75,12 +75,22 @@ class ThoraxPlanWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.layout.addWidget(step1Box)
         step1Layout = qt.QVBoxLayout(step1Box)
 
-        self.loadDicomBtn = qt.QPushButton("📂 Selecionar Pasta DICOM / TC Tórax")
+        loadBtnRow = qt.QHBoxLayout()
+        self.loadDicomBtn = qt.QPushButton("📂 Carregar DICOM / Volume")
         self.loadDicomBtn.setStyleSheet(
-            "font-size: 13px; font-weight: bold; height: 38px; background-color: #0284c7; color: white; border-radius: 6px;"
+            "font-size: 12px; font-weight: bold; height: 36px; background-color: #0284c7; color: white; border-radius: 6px;"
         )
         self.loadDicomBtn.connect("clicked(bool)", self.onLoadDicomClicked)
-        step1Layout.addWidget(self.loadDicomBtn)
+        loadBtnRow.addWidget(self.loadDicomBtn)
+
+        self.loadSampleBtn = qt.QPushButton("🧪 Carregar TC Tórax Teste (CTChest)")
+        self.loadSampleBtn.setStyleSheet(
+            "font-size: 12px; font-weight: bold; height: 36px; background-color: #6366f1; color: white; border-radius: 6px;"
+        )
+        self.loadSampleBtn.connect("clicked(bool)", self.onLoadSampleClicked)
+        loadBtnRow.addWidget(self.loadSampleBtn)
+
+        step1Layout.addLayout(loadBtnRow)
 
         self.examStatusLabel = qt.QLabel("Nenhum exame carregado no momento.")
         self.examStatusLabel.setStyleSheet("color: #64748b; font-size: 11px;")
@@ -188,11 +198,17 @@ class ThoraxPlanWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # -------------------------------------------------------------
 
     def onLoadDicomClicked(self):
-        directory = qt.QFileDialog.getExistingDirectory(
-            None, "Selecionar Pasta DICOM do Exame"
+        path = qt.QFileDialog.getOpenFileName(
+            None,
+            "Selecionar Volume Tomográfico (.nrrd, .nii, .dcm)",
+            "",
+            "Volumes Médicos (*.nrrd *.nii *.nii.gz *.mha *.dcm);;Todos os Arquivos (*)",
         )
-        if directory:
-            volumeNode = self.logic.loadDicomVolume(directory)
+        if not path:
+            path = qt.QFileDialog.getExistingDirectory(None, "Ou Selecionar Pasta DICOM")
+
+        if path:
+            volumeNode = self.logic.loadDicomVolume(path)
             if volumeNode:
                 self.currentVolumeNode = volumeNode
                 self.examStatusLabel.setText(
@@ -200,6 +216,26 @@ class ThoraxPlanWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 )
                 self.examStatusLabel.setStyleSheet("color: #10b981; font-weight: bold;")
                 slicer.util.resetSliceViews()
+
+    def onLoadSampleClicked(self):
+        """Baixa e carrega instantaneamente uma TC de tórax real oficial do 3D Slicer."""
+        self.examStatusLabel.setText("⏳ Baixando TC de Tórax de teste (CTChest)...")
+        self.examStatusLabel.setStyleSheet("color: #6366f1; font-weight: bold;")
+        slicer.app.processEvents()
+        try:
+            import SampleData
+            self.currentVolumeNode = SampleData.downloadSample("CTChest")
+            self.examStatusLabel.setText("✓ Carregado: CTChest (TC de Tórax Real)")
+            self.examStatusLabel.setStyleSheet("color: #10b981; font-weight: bold;")
+            slicer.util.resetSliceViews()
+            slicer.util.resetThreeDViews()
+            slicer.util.infoDisplay(
+                "Tomografia de Tórax (CTChest) carregada!\n\n"
+                "Agora você pode clicar no botão:\n"
+                "'2. Clicar no Centro do Nódulo' para posicionar a lesão e ver a esfera da margem 3D."
+            )
+        except Exception as e:
+            slicer.util.errorDisplay(f"Erro ao carregar amostra: {str(e)}")
 
     def onRunAiClicked(self):
         if not self.currentVolumeNode:
@@ -242,6 +278,12 @@ class ThoraxPlanWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             radius = self.marginSlider.value
             self.marginModelNode = self.logic.updateMarginSphere(coords, radius)
 
+            # Centraliza as fatias 2D (Axial, Sagital, Coronal) na coordenada do nódulo
+            try:
+                slicer.modules.markups.logic().JumpSlicesToLocation(coords[0], coords[1], coords[2], True)
+            except Exception:
+                pass
+
     def onMarginChanged(self, value):
         if self.noduleFiducialNode and self.noduleFiducialNode.GetNumberOfControlPoints() > 0:
             coords = [0.0, 0.0, 0.0]
@@ -276,9 +318,9 @@ class ThoraxPlanWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 class ThoraxPlanLogic(ScriptedLoadableModuleLogic):
     """Regras de negócio e operações computacionais."""
 
-    def loadDicomVolume(self, dicomDir):
+    def loadDicomVolume(self, path):
         try:
-            return slicer.util.loadVolume(dicomDir)
+            return slicer.util.loadVolume(path)
         except Exception as e:
             slicer.util.errorDisplay(f"Erro ao carregar o exame: {str(e)}")
             return None
@@ -301,7 +343,6 @@ class ThoraxPlanLogic(ScriptedLoadableModuleLogic):
             self.applySurgicalColors(segNode)
             return segNode
         except ImportError:
-            # Sugere instalação da extensão se ainda não estiver presente
             confirm = qt.QMessageBox.question(
                 None,
                 "Instalar Módulo de IA",
