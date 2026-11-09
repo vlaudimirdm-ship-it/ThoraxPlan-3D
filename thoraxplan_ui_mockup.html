@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>ThoraxPlan 3D - Arquitetura de Interface</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    .view-cube {
+      perspective: 600px;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background-color: var(--border);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased p-4 font-sans custom-scroll">
+
+  <!-- Container Principal -->
+  <div class="max-w-7xl mx-auto flex flex-col h-[92vh] border border-[var(--border)] rounded-2xl shadow-xl overflow-hidden bg-[var(--card)]">
+    
+    <!-- Topo: Barra do Cirurgião & Paciente -->
+    <header class="flex items-center justify-between px-6 py-3 border-b border-[var(--border)] bg-[var(--content)] bg-opacity-40">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+          🫁
+        </div>
+        <div>
+          <h1 class="text-base font-bold tracking-tight text-[var(--foreground)] flex items-center gap-2">
+            ThoraxPlan 3D <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">VATS & RATS Planner</span>
+          </h1>
+          <p class="text-xs text-[var(--muted-foreground)]">Planejamento Anatômico Simplificado de Tórax</p>
+        </div>
+      </div>
+
+      <!-- Informações Rápidas do Exame -->
+      <div class="flex items-center space-x-6 text-xs bg-[var(--card)] px-4 py-1.5 rounded-lg border border-[var(--border)]">
+        <div><span class="text-[var(--muted-foreground)]">Paciente:</span> <strong class="text-[var(--foreground)]">SILVA, J. M. (64a)</strong></div>
+        <div><span class="text-[var(--muted-foreground)]">Exame:</span> <strong class="text-[var(--foreground)]">TC Tórax C/ Contraste (0.6mm)</strong></div>
+        <div><span class="text-[var(--muted-foreground)]">Segmento Alvo:</span> <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-500 font-semibold">LID - S6 (Superior)</span></div>
+      </div>
+
+      <!-- Ações de Saída -->
+      <div class="flex items-center space-x-2">
+        <button class="px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--border)] hover:bg-[var(--sidebar)] transition">
+          Trocar Exame DICOM
+        </button>
+        <button class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow transition flex items-center gap-1.5">
+          <span>Relatório Pré-Op 3D</span> ➔
+        </button>
+      </div>
+    </header>
+
+    <!-- Miolo: Painel de Controle (Wizard) + Área 3D + Fatias 2D -->
+    <div class="flex-1 flex overflow-hidden">
+      
+      <!-- Painel Lateral Esquerdo: Wizard de 3 Passos (Simplicidade Extrema) -->
+      <aside class="w-80 border-r border-[var(--border)] p-4 flex flex-col justify-between overflow-y-auto custom-scroll bg-[var(--sidebar)]">
+        
+        <div class="space-y-5">
+          
+          <!-- PASSO 1: DADOS E IA -->
+          <div class="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-sm space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-blue-500 uppercase tracking-wider flex items-center gap-1.5">
+                <span class="w-5 h-5 rounded-full bg-blue-500/20 text-blue-600 flex items-center justify-center text-[11px]">1</span>
+                Anatomia por IA
+              </span>
+              <span class="text-[11px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 font-medium">Concluído</span>
+            </div>
+            <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
+              Segmentação automática dos 5 lobos, vias aéreas e circulação pulmonar realizada.
+            </p>
+            <div class="text-[11px] space-y-1 text-[var(--muted-foreground)] bg-[var(--content)] p-2 rounded-lg border border-[var(--border)]">
+              <div class="flex justify-between"><span>Lobos & Fissuras:</span> <span class="text-green-500 font-medium">✓ Detectados</span></div>
+              <div class="flex justify-between"><span>Brônquios Segmentares:</span> <span class="text-green-500 font-medium">✓ Mapeados</span></div>
+              <div class="flex justify-between"><span>Artéria & Veias:</span> <span class="text-green-500 font-medium">✓ Isoladas</span></div>
+            </div>
+          </div>
+
+          <!-- PASSO 2: MARCAÇÃO DA LESÃO E MARGEM -->
+          <div class="p-3.5 rounded-xl border-2 border-amber-500/40 bg-[var(--card)] shadow-sm space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1.5">
+                <span class="w-5 h-5 rounded-full bg-amber-500/20 text-amber-600 flex items-center justify-center text-[11px]">2</span>
+                Nódulo & Margens
+              </span>
+              <span class="text-[11px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500 font-medium">Ativo</span>
+            </div>
+
+            <!-- Botão de Marcação Direta -->
+            <button id="btnNodule" class="w-full py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold text-xs transition flex items-center justify-center gap-2 shadow-sm">
+              🎯 Clicar no Nódulo (1 Clique)
+            </button>
+
+            <!-- Dimensões da Lesão -->
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="p-2 rounded bg-[var(--content)] border border-[var(--border)]">
+                <span class="text-[var(--muted-foreground)] text-[11px] block">Diâmetro Nódulo:</span>
+                <span class="text-base font-bold text-[var(--foreground)]">14.2 mm</span>
+              </div>
+              <div class="p-2 rounded bg-[var(--content)] border border-[var(--border)]">
+                <span class="text-[var(--muted-foreground)] text-[11px] block">Volume Lesão:</span>
+                <span class="text-base font-bold text-[var(--foreground)]">1.6 cm³</span>
+              </div>
+            </div>
+
+            <!-- Ajuste da Margem Oncológica -->
+            <div class="space-y-1.5 pt-1">
+              <div class="flex justify-between text-xs">
+                <span class="text-[var(--muted-foreground)]">Margem de Ressecção:</span>
+                <strong id="marginLabel" class="text-blue-500 font-bold">20 mm</strong>
+              </div>
+              <input id="marginSlider" type="range" min="10" max="30" value="20" class="w-full accent-blue-600 cursor-pointer">
+              <p class="text-[11px] text-[var(--muted-foreground)] italic">
+                Esfera de segurança oncológica (limite > diâmetro da lesão).
+              </p>
+            </div>
+          </div>
+
+          <!-- PASSO 3: CONTROLES VISUAIS ANATÔMICOS (TOGGLES DE 1 TOQUE) -->
+          <div class="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-sm space-y-3">
+            <span class="text-xs font-bold text-[var(--foreground)] uppercase tracking-wider flex items-center gap-1.5">
+              <span class="w-5 h-5 rounded-full bg-[var(--border)] flex items-center justify-center text-[11px]">3</span>
+              Estruturas Anatômicas
+            </span>
+
+            <div class="space-y-2 text-xs">
+              <!-- Nódulo & Margem -->
+              <label class="flex items-center justify-between p-2 rounded-lg bg-[var(--content)] hover:bg-[var(--border)] cursor-pointer transition">
+                <div class="flex items-center space-x-2">
+                  <span class="w-3.5 h-3.5 rounded-full bg-yellow-400 border border-yellow-600 shadow-sm"></span>
+                  <span class="font-medium">Nódulo + Margem 3D</span>
+                </div>
+                <input type="checkbox" checked class="w-4 h-4 rounded text-yellow-500">
+              </label>
+
+              <!-- Brônquios -->
+              <label class="flex items-center justify-between p-2 rounded-lg bg-[var(--content)] hover:bg-[var(--border)] cursor-pointer transition">
+                <div class="flex items-center space-x-2">
+                  <span class="w-3.5 h-3.5 rounded-full bg-cyan-400 border border-cyan-600 shadow-sm"></span>
+                  <span class="font-medium">Brônquio Segmentar (B6)</span>
+                </div>
+                <input type="checkbox" checked class="w-4 h-4 rounded text-cyan-500">
+              </label>
+
+              <!-- Artéria -->
+              <label class="flex items-center justify-between p-2 rounded-lg bg-[var(--content)] hover:bg-[var(--border)] cursor-pointer transition">
+                <div class="flex items-center space-x-2">
+                  <span class="w-3.5 h-3.5 rounded-full bg-red-500 border border-red-700 shadow-sm"></span>
+                  <span class="font-medium">Artéria Segmentar (A6)</span>
+                </div>
+                <input type="checkbox" checked class="w-4 h-4 rounded text-red-500">
+              </label>
+
+              <!-- Veia -->
+              <label class="flex items-center justify-between p-2 rounded-lg bg-[var(--content)] hover:bg-[var(--border)] cursor-pointer transition">
+                <div class="flex items-center space-x-2">
+                  <span class="w-3.5 h-3.5 rounded-full bg-blue-500 border border-blue-700 shadow-sm"></span>
+                  <span class="font-medium">Veias Intersegmentares (V6)</span>
+                </div>
+                <input type="checkbox" checked class="w-4 h-4 rounded text-blue-500">
+              </label>
+
+              <!-- Lobo Pulmonar Transparente -->
+              <div class="p-2 rounded-lg bg-[var(--content)] space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-3.5 h-3.5 rounded-full bg-emerald-400/50 border border-emerald-600"></span>
+                    <span class="font-medium">Lobo Inferior (LID)</span>
+                  </div>
+                  <span id="opacityVal" class="text-[11px] font-bold text-[var(--muted-foreground)]">30%</span>
+                </div>
+                <input id="opacitySlider" type="range" min="0" max="100" value="30" class="w-full accent-emerald-500 cursor-pointer">
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Rodapé do Painel: Alerta Anatômico Seguro -->
+        <div class="pt-3 border-t border-[var(--border)]">
+          <div class="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[11px] leading-tight">
+            <strong>✓ Margem Livre Garantida:</strong><br>
+            A margem de 20 mm não cruza a fissura maior e preserva a veia intersegmentar posterior.
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- Área Central: Visualizador 3D Dinâmico & Controles de Câmera Cirúrgica -->
+      <main class="flex-1 flex flex-col bg-slate-950 relative overflow-hidden">
+        
+        <!-- Barra Flutuante de Ângulos Cirúrgicos (VATS / RATS) -->
+        <div class="absolute top-4 left-4 z-10 flex items-center space-x-1.5 bg-slate-900/80 backdrop-blur border border-slate-700/60 p-1.5 rounded-xl shadow-lg">
+          <span class="text-[11px] text-slate-400 px-2 font-medium">Vistas Pré-Op:</span>
+          <button class="px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition font-medium">
+            👁️ Hilum (Vascular)
+          </button>
+          <button class="px-2.5 py-1 text-xs rounded-lg bg-blue-600 text-white font-medium shadow">
+            🎯 Visão Trocarte VATS
+          </button>
+          <button class="px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition font-medium">
+            📐 Fissura Maior
+          </button>
+          <button class="px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition font-medium">
+            🔄 Reset Câmera
+          </button>
+        </div>
+
+        <!-- Canvas Gráfico 3D Simulado (Modelo Anatômico Interativo de Alta Fidelidade) -->
+        <div class="flex-1 flex items-center justify-center p-8 relative">
+          
+          <!-- Mockup Anatômico em SVG 3D -->
+          <svg viewBox="0 0 600 500" class="w-full h-full max-h-[550px] drop-shadow-2xl">
+            <defs>
+              <radialGradient id="lungLobe" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#34d399" stop-opacity="0.35"/>
+                <stop offset="80%" stop-color="#059669" stop-opacity="0.18"/>
+                <stop offset="100%" stop-color="#047857" stop-opacity="0.05"/>
+              </radialGradient>
+              <radialGradient id="noduleGrad" cx="40%" cy="40%" r="50%">
+                <stop offset="0%" stop-color="#fef08a"/>
+                <stop offset="80%" stop-color="#eab308"/>
+                <stop offset="100%" stop-color="#a16207"/>
+              </radialGradient>
+              <radialGradient id="marginGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#ef4444" stop-opacity="0.35"/>
+                <stop offset="90%" stop-color="#b91c1c" stop-opacity="0.15"/>
+                <stop offset="100%" stop-color="#7f1d1d" stop-opacity="0.0"/>
+              </radialGradient>
+              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3" result="blur"/>
+                <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+              </filter>
+            </defs>
+
+            <!-- 1. Lobo Pulmonar (Contorno Transparente 3D) -->
+            <path d="M 180,100 C 350,70 520,150 490,320 C 470,430 360,460 250,450 C 140,440 100,350 110,250 C 120,160 140,110 180,100 Z" 
+                  fill="url(#lungLobe)" stroke="#10b981" stroke-width="2.5" stroke-dasharray="6,4" opacity="0.8"/>
+
+            <!-- 2. Árvore Brônquica (Ciano) -->
+            <!-- Brônquio Principal e Intermediário -->
+            <path d="M 220,120 Q 240,190 260,250" stroke="#06b6d4" stroke-width="14" stroke-linecap="round" fill="none" filter="url(#glow)"/>
+            <!-- Brônquio Segmentar B6 para o nódulo -->
+            <path d="M 260,250 Q 290,280 340,310" stroke="#22d3ee" stroke-width="8" stroke-linecap="round" fill="none"/>
+            <path d="M 260,250 Q 240,310 230,380" stroke="#0891b2" stroke-width="9" stroke-linecap="round" fill="none"/>
+
+            <!-- 3. Artéria Pulmonar (Vermelho) -->
+            <path d="M 200,140 Q 225,210 245,265" stroke="#ef4444" stroke-width="12" stroke-linecap="round" fill="none" filter="url(#glow)"/>
+            <path d="M 245,265 Q 285,290 335,305" stroke="#f87171" stroke-width="7" stroke-linecap="round" fill="none"/>
+
+            <!-- 4. Veias Intersegmentares (Azul) -->
+            <path d="M 240,150 Q 270,220 280,280" stroke="#3b82f6" stroke-width="11" stroke-linecap="round" fill="none" filter="url(#glow)"/>
+            <path d="M 280,280 Q 320,350 360,400" stroke="#60a5fa" stroke-width="7" stroke-linecap="round" fill="none"/>
+
+            <!-- 5. Margem Oncológica Translúcida (Raio 20mm) -->
+            <circle cx="360" cy="315" r="58" fill="url(#marginGrad)" stroke="#f87171" stroke-width="1.5" stroke-dasharray="4,3"/>
+            
+            <!-- 6. Nódulo Pulmonar (Amarelo 3D) -->
+            <circle cx="360" cy="315" r="22" fill="url(#noduleGrad)" stroke="#ca8a04" stroke-width="2" filter="url(#glow)"/>
+
+            <!-- Anotações Anatômicas Dinâmicas -->
+            <!-- Nódulo -->
+            <g transform="translate(420, 290)">
+              <line x1="-38" y1="20" x2="0" y2="0" stroke="#eab308" stroke-width="1.5"/>
+              <rect x="0" y="-12" width="135" height="24" rx="5" fill="#1e293b" stroke="#eab308" stroke-width="1"/>
+              <text x="8" y="4" font-size="11" font-weight="bold" fill="#fef08a">Nódulo S6 (14mm)</text>
+            </g>
+
+            <!-- Artéria A6 -->
+            <g transform="translate(360, 230)">
+              <line x1="-50" y1="55" x2="0" y2="0" stroke="#ef4444" stroke-width="1.5"/>
+              <rect x="0" y="-12" width="105" height="24" rx="5" fill="#1e293b" stroke="#ef4444" stroke-width="1"/>
+              <text x="8" y="4" font-size="11" font-weight="bold" fill="#fca5a5">Ramo Art. A6</text>
+            </g>
+
+            <!-- Brônquio B6 -->
+            <g transform="translate(190, 340)">
+              <line x1="120" y1="-35" x2="0" y2="0" stroke="#22d3ee" stroke-width="1.5"/>
+              <rect x="-105" y="-12" width="105" height="24" rx="5" fill="#1e293b" stroke="#22d3ee" stroke-width="1"/>
+              <text x="-97" y="4" font-size="11" font-weight="bold" fill="#67e8f9">Brônquio B6</text>
+            </g>
+
+            <!-- Veia Intersegmentar V6 -->
+            <g transform="translate(400, 395)">
+              <line x1="-50" y1="-15" x2="0" y2="0" stroke="#3b82f6" stroke-width="1.5"/>
+              <rect x="0" y="-12" width="125" height="24" rx="5" fill="#1e293b" stroke="#3b82f6" stroke-width="1"/>
+              <text x="8" y="4" font-size="11" font-weight="bold" fill="#93c5fd">Veia Intersegm. V6</text>
+            </g>
+          </svg>
+
+          <!-- Marcador de Orientação Espacial (Cubo Anatômico) -->
+          <div class="absolute bottom-5 right-5 w-20 h-20 bg-slate-900/80 border border-slate-700/80 rounded-xl flex flex-col items-center justify-center text-[10px] text-slate-300 shadow-lg">
+            <span class="text-blue-400 font-bold">SUPERIOR</span>
+            <div class="flex justify-between w-full px-2 text-[9px] text-slate-400">
+              <span>ANT</span>
+              <span>POST</span>
+            </div>
+            <span class="text-slate-400">INFERIOR</span>
+          </div>
+
+        </div>
+
+        <!-- Barra Inferior: Métricas de Segurança Cirúrgica -->
+        <footer class="h-12 border-t border-slate-800/80 bg-slate-900/90 px-6 flex items-center justify-between text-xs text-slate-300">
+          <div class="flex items-center space-x-6">
+            <div class="flex items-center space-x-2">
+              <span class="text-slate-500">Distância Nódulo-Brônquio (B6):</span>
+              <span class="font-bold text-cyan-400">8.4 mm</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="text-slate-500">Distância Nódulo-Artéria (A6):</span>
+              <span class="font-bold text-red-400">6.1 mm</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="text-slate-500">Distância à Fissura Maior:</span>
+              <span class="font-bold text-emerald-400">22.8 mm (> 20mm OK)</span>
+            </div>
+          </div>
+          <div class="text-slate-400 text-[11px]">
+            Segmentectomia Sugerida: <strong class="text-white">Segmentectomia S6 Direita (Típica)</strong>
+          </div>
+        </footer>
+
+      </main>
+
+      <!-- Painel Direito Colapsável: Sincronização 2D (Fatias TC Axial/Coronal) -->
+      <aside class="w-72 border-l border-[var(--border)] p-3 flex flex-col justify-between bg-[var(--card)]">
+        
+        <div>
+          <div class="flex items-center justify-between pb-2 border-b border-[var(--border)]">
+            <h3 class="text-xs font-bold text-[var(--foreground)] uppercase">Tomografia Sincronizada</h3>
+            <span class="text-[10px] text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded">Corte Central</span>
+          </div>
+
+          <!-- Janela Axial com Cruzamento da Lesão -->
+          <div class="mt-3 space-y-1">
+            <div class="flex justify-between text-[11px] text-[var(--muted-foreground)]">
+              <span>Axial (Z: -142.5mm)</span>
+              <span>Janela Pulmonar</span>
+            </div>
+            <div class="w-full h-44 rounded-lg bg-black border border-[var(--border)] relative overflow-hidden flex items-center justify-center">
+              <!-- Simulação da fatia TC -->
+              <div class="w-36 h-36 rounded-full border border-slate-700 bg-slate-900/60 flex items-center justify-center relative">
+                <!-- Nódulo no parênquima -->
+                <div class="absolute right-7 bottom-9 w-4 h-4 rounded-full bg-yellow-400/90 border border-yellow-200"></div>
+                <!-- Mira cirúrgica -->
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div class="w-full h-px bg-yellow-400/30"></div>
+                  <div class="h-full w-px bg-yellow-400/30 absolute"></div>
+                </div>
+              </div>
+              <span class="absolute bottom-1 left-2 text-[10px] text-slate-400 font-mono">TC Tórax Axial</span>
+            </div>
+          </div>
+
+          <!-- Janela Coronal -->
+          <div class="mt-3 space-y-1">
+            <div class="flex justify-between text-[11px] text-[var(--muted-foreground)]">
+              <span>Coronal (Y: -35.0mm)</span>
+              <span>Visão Hilum</span>
+            </div>
+            <div class="w-full h-32 rounded-lg bg-black border border-[var(--border)] relative overflow-hidden flex items-center justify-center">
+              <div class="w-28 h-28 border border-slate-700 bg-slate-900/60 flex items-center justify-center relative">
+                <div class="absolute right-5 bottom-6 w-3.5 h-3.5 rounded-full bg-yellow-400/90"></div>
+              </div>
+              <span class="absolute bottom-1 left-2 text-[10px] text-slate-400 font-mono">TC Tórax Coronal</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="w-full py-2 rounded-lg border border-[var(--border)] text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--sidebar)] transition">
+          Alternar para 4 Visualizadores (2D + 3D)
+        </button>
+
+      </aside>
+
+    </div>
+
+  </div>
+
+  <script>
+    // Interatividade do Protótipo
+    const marginSlider = document.getElementById('marginSlider');
+    const marginLabel = document.getElementById('marginLabel');
+    marginSlider.addEventListener('input', (e) => {
+      marginLabel.textContent = e.target.value + ' mm';
+    });
+
+    const opacitySlider = document.getElementById('opacitySlider');
+    const opacityVal = document.getElementById('opacityVal');
+    opacitySlider.addEventListener('input', (e) => {
+      opacityVal.textContent = e.target.value + '%';
+    });
+  </script>
+</body>
+</html>
