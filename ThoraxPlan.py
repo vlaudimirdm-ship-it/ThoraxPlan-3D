@@ -38,8 +38,10 @@ class ThoraxPlanWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         VTKObservationMixin.__init__(self)
         self.logic = None
         self._parameterNode = None
+        self.currentVolumeNode = None
         self.noduleFiducialNode = None
         self.marginModelNode = None
+        self.segmentationNode = None
 
     def setup(self):
         ScriptedLoadableModuleWidget.setup(self)
@@ -66,10 +68,10 @@ class ThoraxPlanWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.layout.addWidget(headerBox)
 
         # ==========================================
-        # PASSO 1: CARREGAR EXAME DICOM
+        # PASSO 1: CARREGAR EXAME DICOM & IA
         # ==========================================
         step1Box = ctk.ctkCollapsibleButton()
-        step1Box.text = "1. Exame Tomográfico (DICOM)"
+        step1Box.text = "1. Exame Tomográfico & Anatomia por IA"
         self.layout.addWidget(step1Box)
         step1Layout = qt.QVBoxLayout(step1Box)
 
@@ -83,6 +85,18 @@ class ThoraxPlanWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.examStatusLabel = qt.QLabel("Nenhum exame carregado no momento.")
         self.examStatusLabel.setStyleSheet("color: #64748b; font-size: 11px;")
         step1Layout.addWidget(self.examStatusLabel)
+
+        # Botão de Auto-Segmentação de Vias Aéreas e Vasos com IA
+        self.runAiBtn = qt.QPushButton("⚡ Auto-Segmentar Vasos & Brônquios (IA)")
+        self.runAiBtn.setStyleSheet(
+            "font-size: 12px; font-weight: bold; height: 34px; background-color: #0f766e; color: white; border-radius: 6px;"
+        )
+        self.runAiBtn.connect("clicked(bool)", self.onRunAiClicked)
+        step1Layout.addWidget(self.runAiBtn)
+
+        self.aiStatusLabel = qt.QLabel("IA Pronta (TotalSegmentator / Lung Vessels)")
+        self.aiStatusLabel.setStyleSheet("color: #64748b; font-size: 10px;")
+        step1Layout.addWidget(self.aiStatusLabel)
 
         # ==========================================
         # PASSO 2: MARCAÇÃO DO NÓDULO E MARGEM
@@ -133,14 +147,17 @@ class ThoraxPlanWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         self.chkArteries = qt.QCheckBox("Artérias Segmentares (Vermelho)")
         self.chkArteries.setChecked(True)
+        self.chkArteries.connect("toggled(bool)", lambda v: self.onToggleSegment("artery", v))
         togglesLayout.addWidget(self.chkArteries)
 
         self.chkVeins = qt.QCheckBox("Veias Intersegmentares (Azul)")
         self.chkVeins.setChecked(True)
+        self.chkVeins.connect("toggled(bool)", lambda v: self.onToggleSegment("vein", v))
         togglesLayout.addWidget(self.chkVeins)
 
         self.chkBronchi = qt.QCheckBox("Árvore Brônquica (Ciano)")
         self.chkBronchi.setChecked(True)
+        self.chkBronchi.connect("toggled(bool)", lambda v: self.onToggleSegment("airway", v))
         togglesLayout.addWidget(self.chkBronchi)
 
         step3Layout.addWidget(togglesFrame)
@@ -177,11 +194,29 @@ class ThoraxPlanWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if directory:
             volumeNode = self.logic.loadDicomVolume(directory)
             if volumeNode:
+                self.currentVolumeNode = volumeNode
                 self.examStatusLabel.setText(
                     f"✓ Carregado: {volumeNode.GetName()} (Pronto para análise)"
                 )
                 self.examStatusLabel.setStyleSheet("color: #10b981; font-weight: bold;")
                 slicer.util.resetSliceViews()
+
+    def onRunAiClicked(self):
+        if not self.currentVolumeNode:
+            slicer.util.warningDisplay("Por favor, carregue uma Tomografia (DICOM) primeiro.")
+            return
+
+        self.aiStatusLabel.setText("⏳ Executando segmentação de vasos e brônquios...")
+        self.aiStatusLabel.setStyleSheet("color: #f59e0b; font-weight: bold;")
+        slicer.app.processEvents()
+
+        self.segmentationNode = self.logic.runAiSegmentation(self.currentVolumeNode)
+        if self.segmentationNode:
+            self.aiStatusLabel.setText("✓ Vias Aéreas e Vasos Segmentados com Sucesso!")
+            self.aiStatusLabel.setStyleSheet("color: #10b981; font-weight: bold;")
+        else:
+            self.aiStatusLabel.setText("TotalSegmentator não instalado ou processamento cancelado.")
+            self.aiStatusLabel.setStyleSheet("color: #ef4444;")
 
     def onMarkNoduleClicked(self):
         """Ativa a mira de marcação para o cirurgião clicar no nódulo."""
@@ -189,7 +224,6 @@ class ThoraxPlanWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.noduleFiducialNode.AddObserver(
             slicer.vtkMRMLMarkupsNode.PointModifiedEvent, self.onNodulePointModified
         )
-        # Ativa o modo de inserção interativo de ponto único
         interactionNode = slicer.app.applicationLogic().GetInteractionNode()
         selectionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLSelectionNodeSingleton")
         selectionNode.SetActivePlaceNodeID(self.noduleFiducialNode.GetID())
@@ -205,7 +239,6 @@ class ThoraxPlanWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 f"Nódulo Localizado em: X={coords[0]:.1f}, Y={coords[1]:.1f}, Z={coords[2]:.1f}"
             )
             self.noduleInfoLabel.setStyleSheet("color: #f59e0b; font-weight: bold;")
-            # Atualiza o modelo esférico da margem cirúrgica
             radius = self.marginSlider.value
             self.marginModelNode = self.logic.updateMarginSphere(coords, radius)
 
@@ -218,6 +251,17 @@ class ThoraxPlanWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def onToggleMargin(self, visible):
         if self.marginModelNode:
             self.marginModelNode.SetDisplayVisibility(visible)
+
+    def onToggleSegment(self, keyword, visible):
+        if not self.segmentationNode:
+            return
+        segmentation = self.segmentationNode.GetSegmentation()
+        for i in range(segmentation.GetNumberOfSegments()):
+            segmentId = segmentation.GetNthSegmentID(i)
+            segment = segmentation.GetSegment(segmentId)
+            name = segment.GetName().lower()
+            if keyword in name:
+                self.segmentationNode.GetDisplayNode().SetSegmentVisibility(segmentId, visible)
 
     def onVatsViewClicked(self):
         self.logic.setCameraView(azimuth=35, elevation=15)
@@ -238,6 +282,58 @@ class ThoraxPlanLogic(ScriptedLoadableModuleLogic):
         except Exception as e:
             slicer.util.errorDisplay(f"Erro ao carregar o exame: {str(e)}")
             return None
+
+    def runAiSegmentation(self, volumeNode):
+        """Dispara a extração automática de vasos pulmonares e árvore traqueobrônquica."""
+        try:
+            import TotalSegmentator
+            tsLogic = TotalSegmentator.TotalSegmentatorLogic()
+            segNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode", "ThoraxPlan_Anatomy")
+            segNode.CreateDefaultDisplayNodes()
+
+            # Executa a tarefa especializada 'lung_vessels'
+            tsLogic.process(
+                inputVolume=volumeNode,
+                outputSegmentation=segNode,
+                task="lung_vessels",
+                fast=True,
+            )
+            self.applySurgicalColors(segNode)
+            return segNode
+        except ImportError:
+            # Sugere instalação da extensão se ainda não estiver presente
+            confirm = qt.QMessageBox.question(
+                None,
+                "Instalar Módulo de IA",
+                "A extensão TotalSegmentator é necessária para automação completa. Deseja instalar agora via Extension Manager?",
+            )
+            if confirm == qt.QMessageBox.Yes:
+                slicer.app.extensionsManagerModel().installExtensionFromServer("TotalSegmentator")
+                slicer.util.infoDisplay("TotalSegmentator instalado com sucesso! Reinicie o Slicer para ativar.")
+            return None
+        except Exception as e:
+            slicer.util.errorDisplay(f"Falha ao executar TotalSegmentator: {str(e)}")
+            return None
+
+    def applySurgicalColors(self, segmentationNode):
+        """Aplica a paleta de cores cirúrgicas padrão (A=Vermelho, V=Azul, B=Ciano)."""
+        segmentation = segmentationNode.GetSegmentation()
+        for i in range(segmentation.GetNumberOfSegments()):
+            segmentId = segmentation.GetNthSegmentID(i)
+            segment = segmentation.GetSegment(segmentId)
+            name = segment.GetName().lower()
+
+            if "artery" in name or "pulmonary_artery" in name:
+                segment.SetColor(0.93, 0.26, 0.26)  # Vermelho cirúrgico
+            elif "vein" in name or "pulmonary_vein" in name:
+                segment.SetColor(0.23, 0.51, 0.96)  # Azul cirúrgico
+            elif "airway" in name or "trachea" in name or "bronch" in name:
+                segment.SetColor(0.02, 0.71, 0.83)  # Ciano vias aéreas
+            elif "lobe" in name or "lung" in name:
+                segment.SetColor(0.06, 0.72, 0.51)  # Verde esmeralda parênquima
+
+        # Ativa a representação em superfície 3D (Closed Surface)
+        segmentationNode.CreateClosedSurfaceRepresentation()
 
     def setupNoduleFiducial(self):
         nodeName = "NoduleTarget"
@@ -285,4 +381,3 @@ class ThoraxPlanLogic(ScriptedLoadableModuleLogic):
         camera.OrthogonalizeViewUp()
         threeDView.resetFocalPoint()
         threeDView.renderWindow().Render()
-
